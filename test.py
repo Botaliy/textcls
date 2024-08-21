@@ -16,6 +16,9 @@ from prompt_toolkit.lexers import Lexer
 from prompt_toolkit.formatted_text import FormattedText
 import asyncio
 from lexer import SqlLexer
+from kb import create_key_bindings
+from prompt_toolkit.enums import EditingMode
+from layout import EditorLayout
 
 
 background_color="#2C3E50"
@@ -33,51 +36,14 @@ style = Style.from_dict({
 
 class Editor():
     def __init__(self):
-        self.app = None
-        self.kb = KeyBindings()
         self.buffer = Buffer()
         self.line_buffer = Buffer()
-
-        @self.kb.add('c-q')
-        def exit_(event):
-            event.app.exit()
-    
-        @self.kb.add('enter')
-        def enter(event):
-            event.current_buffer.insert_text('\n')
-            
-
+        self.editor_layout = EditorLayout(self)
+        self.key_bindings = create_key_bindings(self)
+        self.app = self._create_app()
 
     async def run(self):
-        layot = self.create_layout()
-        self.app = Application(
-            layout=layot,
-            key_bindings=self.kb,
-            style=style,
-            full_screen=True
-        )
         await self.app.run_async()
-
-    def create_layout(self):
-        self.main_window = Window(
-            content=BufferControl(
-                buffer=self.buffer,
-                lexer=SqlLexer()
-            ),
-            wrap_lines=True
-        )
-        self.line_numbers = Window(
-            width=4,
-            content=FormattedTextControl(self.get_line_numbers),
-            style='class:line-numbers',
-            align=WindowAlign.CENTER
-        )
-        return Layout(
-            container=VSplit([
-                self.line_numbers,
-                self.main_window
-            ])
-        )
     
     def get_line_numbers(self):
         lines = self.buffer.document.lines
@@ -90,6 +56,17 @@ class Editor():
                 result.append(('', f'{i+1:>2} \n'))
         result.append(('', '\n' * (len(lines) - len(result))))
         return result
+
+    def _create_app(self):
+        application = Application(
+            editing_mode=EditingMode.EMACS,
+            layout=self.editor_layout.layout,
+            key_bindings=self.key_bindings,
+            style=style,
+            full_screen=True,
+        )
+        return application
+        
 
 
 async def main():
